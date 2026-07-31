@@ -14,9 +14,14 @@ def test_create_job_returns_created_job() -> None:
         },
     )
 
+    print(response.json())
+
     assert response.status_code == 201
+    assert response.json()["filename"] == "customers.csv"
+    # assert response.status_code == 201, response.text
 
     response_body = response.json()
+    # print(response.json())
 
     assert response_body["job_id"]
     assert response_body["filename"] == "customers.csv"
@@ -66,3 +71,90 @@ def test_create_job_rejects_invalid_process_type() -> None:
     )
 
     assert response.status_code == 422
+
+def test_creat_job_accepts_uppercase_csv_extension() -> None:
+    response = client.post(
+        "/jobs",
+        json={
+            "filename": "customers.CSV",
+            "process_type": "customer_csv_cleanup",
+        },
+    )
+    assert response.status_code == 201
+    assert response.json()["filename"] == "customers.CSV"
+
+def test_create_job_removes_filename_whitespace() -> None:
+    response = client.post(
+        "/jobs",
+        json={
+            "filename": "  customers.csv  ",
+            "process_type": "customer_csv_cleanup",
+        },
+    )
+    assert response.status_code == 201
+    assert response.json()["filename"] == "customers.csv"
+
+# def test_create_job_rejects_non_csv_file() -> None:
+#     response = client.post(
+#         "/jobs",
+#         json={
+#             "filename": "customers.pdf",
+#             "process_type": "customer_csv_cleanup",
+#         },
+#     )
+
+#     assert response.status_code == 422
+
+def test_create_job_rejects_non_csv_file() -> None:
+    response = client.post(
+        "/jobs",
+        json={
+            "filename": "customers.pdf",
+            "process_type": "customer_csv_cleanup",
+        },
+    )
+
+    assert response.status_code == 422
+
+    response_body = response.json()
+
+    assert response_body["detail"][0]["msg"] == (
+        "Value error, Only CSV files are supported."
+    )
+
+def test_create_job_rejects_filename_without_extension() -> None:
+    response = client.post(
+        "/jobs",
+        json={
+            "filename": "customers",
+            "process_type": "customer_csv_cleanup",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_create_job_rejects_empty_filename() -> None:
+    response = client.post(
+        "/jobs",
+        json={
+            "filename": "",
+            "process_type": "customer_csv_cleanup",
+        },
+    )
+
+    assert response.status_code == 422
+
+def test_create_job_rejects_whitespace_only_filename() -> None:
+    response = client.post(
+        "/jobs",
+        json={
+            "filename": "   ",
+            "process_type": "customer_csv_cleanup",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+
