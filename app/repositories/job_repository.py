@@ -7,11 +7,11 @@ class JobRepository:
     def __init__(self) -> None:
         self._jobs: Dict[str, JobResponse] = {}
 
-    def create(self, job: JobResponse) -> JobResponse:
+    def save(self, job: JobResponse) -> JobResponse:
         self._jobs[job.job_id] = job
         return job
 
-    def get_by_id(self, job_id: str) -> Optional[JobResponse]:
+    def get(self, job_id: str) -> Optional[JobResponse]:
         return self._jobs.get(job_id)
 
 
