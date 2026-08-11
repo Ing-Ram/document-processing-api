@@ -2,10 +2,9 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from app.models.enums import JobStatus
-from app.models.requeste import CreateJobRequest
-from app.models.response import JobResponse
-from app.repositories.job.repository import JobRepository
-
+from app.models.requests import CreateJobRequest
+from app.models.responses import JobResponse
+from app.repositories.job_repository import JobRepository
 
 class JobService:
     def __init__(self, job_repository: JobRepository):

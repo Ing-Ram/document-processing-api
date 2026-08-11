@@ -28,7 +28,7 @@ def test_create_job_returns_created_job() -> None:
     assert response_body["process_type"] == "customer_csv_cleanup"
     assert response_body["status"] == "AWAITING_UPLOAD"
     assert response_body["created_at"]
-    assert response_body["updated_at"]
+    assert response_body["updated_at"] is None
     assert response_body["completed_at"] is None
 
 

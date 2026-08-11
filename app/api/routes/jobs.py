@@ -6,8 +6,8 @@ from fastapi import APIRouter, HTTPException, status
 from app.models.enums import JobStatus
 from app.models.requests import CreateJobRequest
 from app.models.responses import JobResponse
-from app.repositories.job_repository import job_repository
-
+from app.repositories.job_repository import JobRepository
+from app.services.job_service import JobService
 
 router = APIRouter(
     prefix="/jobs",
@@ -15,31 +15,28 @@ router = APIRouter(
 )
 
 
+repository = JobRepository()
+service = JobService(repository)
+
 @router.post(
     "", 
-    response_model=JobResponse, status_code=status.HTTP_201_CREATED,
+    response_model=JobResponse, 
+    status_code=status.HTTP_201_CREATED,
 )
 
 def create_job(request: CreateJobRequest) -> JobResponse:
-    now = datetime.now(timezone.utc)
+    return service.create_job(request)
 
-    job = JobResponse(
-        job_id=str(uuid4()),
-        filename=request.filename,
-        process_type=request.process_type,
-        status=JobStatus.AWAITING_UPLOAD,
-        created_at=now,
-        updated_at=now,
-    )
 
-    return job_repository.create(job)
 
 @router.get(
     "/{job_id}", 
     response_model=JobResponse,
 )
+
+
 def get_job(job_id: str) -> JobResponse:
-    job = job_repository.get_by_id(job_id)
+    job = service.get_job(job_id)
 
     if job is None:
         raise HTTPException(

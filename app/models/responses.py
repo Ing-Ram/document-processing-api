@@ -11,6 +11,6 @@ class JobResponse(BaseModel):
     filename: str
     process_type: ProcessType
     status: JobStatus
-    created_at: datetime
-    updated_at: datetime
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
     completed_at: Optional[datetime] = None
