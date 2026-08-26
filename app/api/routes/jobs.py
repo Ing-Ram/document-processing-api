@@ -1,8 +1,9 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.dependencies import get_job_service
 from app.models.enums import JobStatus
 from app.models.requests import CreateJobRequest
 from app.models.responses import JobResponse
@@ -24,7 +25,10 @@ service = JobService(repository)
     status_code=status.HTTP_201_CREATED,
 )
 
-def create_job(request: CreateJobRequest) -> JobResponse:
+def create_job(
+    request: CreateJobRequest,
+    service: JobService = Depends(get_job_service),
+) -> JobResponse:
     return service.create_job(request)
 
 
@@ -35,7 +39,10 @@ def create_job(request: CreateJobRequest) -> JobResponse:
 )
 
 
-def get_job(job_id: str) -> JobResponse:
+def get_job(
+    job_id: str,
+    service: JobService = Depends(get_job_service),		
+) -> JobResponse:
     job = service.get_job(job_id)
 
     if job is None:
@@ -43,4 +50,9 @@ def get_job(job_id: str) -> JobResponse:
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Job with ID {job_id} not found.",
         )
-    return job 
+    return job
+
+
+
+
+

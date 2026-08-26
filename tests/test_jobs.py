@@ -1,9 +1,23 @@
+import pytest
 from fastapi.testclient import TestClient
+from app.dependencies import get_job_service
+from app.repositories.job_repository import JobRepository
+from app.services.job_service import JobService
 
 from app.main import app
 
+test_repository = JobRepository()
+
+def override_get_job_service() -> JobService:
+    return JobService(test_repository)
+
 client = TestClient(app)
 
+@pytest.fixture(autouse=True)
+def reset_test_repository():
+    global test_repository
+    test_repository = JobRepository()
+    yield
 
 def test_create_job_returns_created_job() -> None:
     response = client.post(
