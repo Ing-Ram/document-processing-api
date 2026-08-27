@@ -27,14 +27,23 @@ class CsvProcessor:
 
 			self._validate_columns(reader.fieldnames)
 
-			rows = list(reader)
-		
+			rows = [ self._clean_row(row)
+			for row in reader
+			]
+		valid_rows = []
+		rejected_rows = []
+
+		for row in rows:
+			if self._is_valid_email(row["email"]):
+				valid_rows.append(row)
+			else:
+				rejected_rows.append(rows)
 
 
 		return ProcessingResult(
 			records_received=len(rows),
-			records_processed=len(rows),
-			records_rejected=0,
+			records_processed=len(valid_rows),
+			records_rejected=len(rejected_rows),
 			duplicate_records=0
 
 		)
@@ -60,4 +69,15 @@ class CsvProcessor:
 			raise ValueError(
 				f"ERROR: CSV file is missing required columns: {missing}"
 			)
+	
+	def _clean_row(self, row: dict[str,str]) -> dict[str, str]:
+		cleaned_row =  {
+			key: value.strip()
+			for key, value in row.items()
+		}
 
+		cleaned_row["email"] = cleaned_row["email"].lower()
+		return cleaned_row
+
+	def _is_valid_email(self, email: str) -> bool:
+		return "@" in email and "." in email.split("@")[-1] 

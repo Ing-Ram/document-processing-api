@@ -1,0 +1,4 @@
+customer_id,first_name,last_name,email
+1001,Chad,Ingram,chad@example.com
+1002,Jane,Doe,not-an-email
+1003,John,Smith,john@example.com
