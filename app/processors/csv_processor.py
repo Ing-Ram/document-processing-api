@@ -51,8 +51,14 @@ class CsvProcessor:
 				rejected_rows.append(rejected_row)
 				continue
 			if email in seen_emails:
-				duplicate_rows.append(row)
+				duplicate_row = row.copy()
+				duplicate_row["rejection_reason"] = "Duplicate email address"
+				
+				duplicate_rows.append(duplicate_row)
+				rejected_rows.append(duplicate_row)
+				
 				continue
+
 			seen_emails.add(email)
 			valid_rows.append(row)
 
@@ -90,6 +96,8 @@ class CsvProcessor:
 			output_path=output_path,
 			error_path=error_path if rejected_rows else None,
 		)
+	
+	
 	def _write_error_output(
 		self,
 		error_path: Path,

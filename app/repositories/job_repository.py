@@ -14,5 +14,8 @@ class JobRepository:
     def get(self, job_id: str) -> Optional[JobResponse]:
         return self._jobs.get(job_id)
 
+    def update(self, job: JobResponse) -> JobResponse:
+        self._jobs[job.job_id] = job
+        return job  
 
 job_repository = JobRepository()

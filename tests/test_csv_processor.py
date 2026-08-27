@@ -118,7 +118,7 @@ def test_processor_detects_duplicate_emails() -> None:
 
     assert result.records_received == 3
     assert result.records_processed == 2
-    assert result.records_rejected == 0
+    assert result.records_rejected == 1
     assert result.duplicate_records == 1
 
 
@@ -162,3 +162,38 @@ def test_processor_writes_rejected_rows_csv(tmp_path: Path) -> None:
     contents = error_file.read_text()
 
     assert "not-an-email" in contents
+
+# def test_processor_detects_duplicate_emails() -> None:
+#     processor = CsvProcessor()
+
+#     result = processor.process(
+#         FIXTURES / "duplicate_customers.csv"
+#     )
+
+#     assert result.records_received == 3
+#     assert result.records_processed == 2
+#     assert result.records_rejected == 1
+#     assert result.duplicate_records == 1
+
+
+def test_processor_writes_duplicate_to_error_csv(tmp_path: Path) -> None:
+    processor = CsvProcessor()
+
+    output_file = tmp_path / "cleaned.csv"
+    error_file = tmp_path / "rejected.csv"
+
+    result = processor.process(
+        FIXTURES / "duplicate_customers.csv",
+        output_path=output_file,
+        error_path=error_file,
+    )
+
+    assert result.records_rejected == 1
+    assert result.duplicate_records == 1
+    assert error_file.exists()
+
+    contents = error_file.read_text()
+
+    assert "Duplicate email" in contents
+    assert "chad@example.com" in contents
+
