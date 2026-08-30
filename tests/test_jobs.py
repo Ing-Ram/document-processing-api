@@ -159,6 +159,21 @@ def test_create_job_rejects_empty_filename() -> None:
 
     assert response.status_code == 422
 
+
+def test_process_job_returns_404_for_missing_job(tmp_path) -> None:
+    response = client.post(
+        "/jobs/missing-job/process",
+        json={
+            "input_path": str(tmp_path / "input.csv"),
+            "output_path": str(tmp_path / "output.csv"),
+            "error_path": str(tmp_path / "errors.csv"),
+        },
+    )
+
+    assert response.status_code == 404
+
+
+
 def test_create_job_rejects_whitespace_only_filename() -> None:
     response = client.post(
         "/jobs",
@@ -170,5 +185,44 @@ def test_create_job_rejects_whitespace_only_filename() -> None:
 
     assert response.status_code == 422
 
+def test_process_job_returns_completed_job(tmp_path) -> None:
+    create_response = client.post(
+        "/jobs",
+        json={
+            "filename": "customers.csv",
+            "process_type": "customer_csv_cleanup",
+        },
+    )
 
+    job_id = create_response.json()["job_id"]
+
+    input_file = tmp_path / "customers.csv"
+    output_file = tmp_path / "cleaned.csv"
+    error_file = tmp_path / "rejected.csv"
+
+    input_file.write_text(
+        "customer_id,first_name,last_name,email\n"
+        "1001,Chad,Ingram,chad@example.com\n"
+    )
+
+    response = client.post(
+        f"/jobs/{job_id}/process",
+        json={
+            "input_path": str(input_file),
+            "output_path": str(output_file),
+            "error_path": str(error_file),
+        },
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+
+    assert body["status"] == "COMPLETED"
+    assert body["records_received"] == 1
+    assert body["records_processed"] == 1
+    assert body["records_rejected"] == 0
+    assert body["duplicate_records"] == 0
+
+    assert output_file.exists()
 

@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 
+from app.models.requests import CreateJobRequest, ProcessJobRequest
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.dependencies import get_job_service
@@ -53,6 +54,27 @@ def get_job(
     return job
 
 
+@router.post(
+    "/{job_id}/process",
+    response_model=JobResponse,
+)
+def process_job(
+    job_id: str,
+    request: ProcessJobRequest,
+    service: JobService = Depends(get_job_service),
+) -> JobResponse:
+    job = service.process_job(
+        job_id=job_id,
+        input_path=request.input_path,
+        output_path=request.output_path,
+        error_path=request.error_path,
+    )
 
+    if job is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Job with ID {job_id} not found.",
+        )
 
+    return job
 
