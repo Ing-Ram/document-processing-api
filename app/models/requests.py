@@ -29,5 +29,5 @@ class CreateJobRequest(BaseModel):
 
 class ProcessJobRequest(BaseModel):
     input_path: Path
-    output_path: Path
-    error_path: Path
+#     # output_path: Path
+    # error_path: Path

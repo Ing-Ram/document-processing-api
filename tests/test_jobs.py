@@ -1,4 +1,5 @@
 import pytest
+from pathlib import Path
 from fastapi.testclient import TestClient
 from app.dependencies import get_job_service
 from app.repositories.job_repository import JobRepository
@@ -197,8 +198,8 @@ def test_process_job_returns_completed_job(tmp_path) -> None:
     job_id = create_response.json()["job_id"]
 
     input_file = tmp_path / "customers.csv"
-    output_file = tmp_path / "cleaned.csv"
-    error_file = tmp_path / "rejected.csv"
+    # output_file = tmp_path / "cleaned.csv"
+    # error_file = tmp_path / "rejected.csv"
 
     input_file.write_text(
         "customer_id,first_name,last_name,email\n"
@@ -209,8 +210,7 @@ def test_process_job_returns_completed_job(tmp_path) -> None:
         f"/jobs/{job_id}/process",
         json={
             "input_path": str(input_file),
-            "output_path": str(output_file),
-            "error_path": str(error_file),
+
         },
     )
 
@@ -224,5 +224,43 @@ def test_process_job_returns_completed_job(tmp_path) -> None:
     assert body["records_rejected"] == 0
     assert body["duplicate_records"] == 0
 
+    output_file = Path("tmp/processed") / job_id / "cleaned.csv"
+
+    print(response.json())
     assert output_file.exists()
 
+
+def test_upload_csv_processes_job() -> None:
+    create_response = client.post(
+        "/jobs",
+        json={
+            "filename": "customers.csv",
+            "process_type": "customer_csv_cleanup",
+        },
+    )
+
+    job_id = create_response.json()["job_id"]
+
+    csv_data = (
+        "customer_id,first_name,last_name,email\n"
+        "1001,Chad,Ingram,chad@example.com\n"
+    )
+
+    response = client.post(
+        f"/jobs/{job_id}/upload",
+        files={
+            "file": (
+                "customers.csv",
+                csv_data,
+                "text/csv",
+            )
+        },
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+
+    assert body["status"] == "COMPLETED"
+    assert body["records_received"] == 1
+    assert body["records_processed"] == 1

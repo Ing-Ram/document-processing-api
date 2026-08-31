@@ -1,5 +1,9 @@
 from datetime import datetime, timezone
 from uuid import uuid4
+from pathlib import Path
+
+from fastapi import UploadFile, File
+
 
 from app.models.requests import CreateJobRequest, ProcessJobRequest
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -63,11 +67,16 @@ def process_job(
     request: ProcessJobRequest,
     service: JobService = Depends(get_job_service),
 ) -> JobResponse:
+    
+    output_directory = Path("tmp/processed") / job_id
+    output_path = output_directory / "cleaned.csv"
+    error_path = output_directory / "rejected.csv"
+    
     job = service.process_job(
         job_id=job_id,
         input_path=request.input_path,
-        output_path=request.output_path,
-        error_path=request.error_path,
+        output_path=output_path,
+        error_path=error_path,
     )
 
     if job is None:
@@ -78,3 +87,44 @@ def process_job(
 
     return job
 
+
+@router.post(
+    "/{job_id}/upload",
+    response_model=JobResponse,
+)
+
+async def uplad_job_file(
+    job_id: str,
+    file: UploadFile = File(...),
+    service: JobService = Depends(get_job_service)
+) -> JobResponse:
+    job=service.get_job(job_id)
+
+    if job is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Job with ID {job_id} not found.",
+        )
+    upload_directory = Path("tmp/uploads") / job_id
+    upload_directory.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    input_path = upload_directory / "input.csv"
+
+    contents = await file.read()
+    input_path.write_bytes(contents)
+
+    output_directory = Path("tmp/processed") / job_id
+    output_path = output_directory / "cleaned.csv"
+    error_path = output_directory / "rejected.csv"
+
+    processed_job = service.process_job(
+        job_id=job_id,
+        input_path=input_path,
+        output_path=output_path,
+        error_path=error_path,
+    )
+
+    return processed_job
