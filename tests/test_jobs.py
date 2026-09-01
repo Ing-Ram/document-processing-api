@@ -4,6 +4,8 @@ from fastapi.testclient import TestClient
 from app.dependencies import get_job_service
 from app.repositories.job_repository import JobRepository
 from app.services.job_service import JobService
+from app.models.requests import CreateJobRequest
+from app.models.enums import JobStatus, ProcessType
 
 from app.main import app
 
@@ -186,7 +188,12 @@ def test_create_job_rejects_whitespace_only_filename() -> None:
 
     assert response.status_code == 422
 
-def test_process_job_returns_completed_job(tmp_path) -> None:
+
+   
+
+
+
+def test_upload_rejects_non_csv_file() -> None:
     create_response = client.post(
         "/jobs",
         json={
@@ -197,40 +204,52 @@ def test_process_job_returns_completed_job(tmp_path) -> None:
 
     job_id = create_response.json()["job_id"]
 
-    input_file = tmp_path / "customers.csv"
-    # output_file = tmp_path / "cleaned.csv"
-    # error_file = tmp_path / "rejected.csv"
-
-    input_file.write_text(
-        "customer_id,first_name,last_name,email\n"
-        "1001,Chad,Ingram,chad@example.com\n"
-    )
-
     response = client.post(
-        f"/jobs/{job_id}/process",
-        json={
-            "input_path": str(input_file),
-
+        f"/jobs/{job_id}/upload",
+        files={
+            "file": (
+                "customers.txt",
+                "hello",
+                "text/plain",
+            )
         },
     )
 
-    assert response.status_code == 200
-
-    body = response.json()
-
-    assert body["status"] == "COMPLETED"
-    assert body["records_received"] == 1
-    assert body["records_processed"] == 1
-    assert body["records_rejected"] == 0
-    assert body["duplicate_records"] == 0
-
-    output_file = Path("tmp/processed") / job_id / "cleaned.csv"
-
-    print(response.json())
-    assert output_file.exists()
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "Only CSV files are supported."
+    }
 
 
-def test_upload_csv_processes_job() -> None:
+def test_upload_rejects_empty_csv() -> None:
+    create_response = client.post(
+        "/jobs",
+        json={
+            "filename": "customers.csv",
+            "process_type": "customer_csv_cleanup",
+        },
+    )
+
+    job_id = create_response.json()["job_id"]
+
+    response = client.post(
+        f"/jobs/{job_id}/upload",
+        files={
+            "file": (
+                "customers.csv",
+                "",
+                "text/csv",
+            )
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "Uploaded CSV file is empty."
+    }
+
+
+def test_upload_csv_marks_job_ready() -> None:
     create_response = client.post(
         "/jobs",
         json={
@@ -261,6 +280,82 @@ def test_upload_csv_processes_job() -> None:
 
     body = response.json()
 
-    assert body["status"] == "COMPLETED"
-    assert body["records_received"] == 1
-    assert body["records_processed"] == 1
+    assert body["status"] == "READY"
+    assert body["records_received"] is None
+    assert body["completed_at"] is None
+
+
+def test_mark_job_ready_updates_status() -> None:
+    repository = JobRepository()
+    service = JobService(repository)
+
+    request = CreateJobRequest(
+        filename="customers.csv",
+        process_type=ProcessType.CUSTOMER_CSV_CLEANUP,
+    )
+
+    job = service.create_job(request)
+
+    updated_job = service.mark_job_ready(job.job_id)
+
+    assert updated_job is not None
+    assert updated_job.status == JobStatus.READY
+    assert updated_job.updated_at is not None
+
+
+def test_process_ready_job_completes_job(tmp_path: Path) -> None:
+    repository = JobRepository()
+    service = JobService(repository)
+
+    request = CreateJobRequest(
+        filename="customers.csv",
+        process_type=ProcessType.CUSTOMER_CSV_CLEANUP,
+    )
+
+    job = service.create_job(request)
+    service.mark_job_ready(job.job_id)
+
+    input_file = tmp_path / "customers.csv"
+    output_file = tmp_path / "cleaned.csv"
+    error_file = tmp_path / "rejected.csv"
+
+    input_file.write_text(
+        "customer_id,first_name,last_name,email\n"
+        "1001,Chad,Ingram,chad@example.com\n"
+    )
+
+    completed_job = service.process_ready_job(
+        job_id=job.job_id,
+        input_path=input_file,
+        output_path=output_file,
+        error_path=error_file,
+    )
+
+    assert completed_job is not None
+    assert completed_job.status == JobStatus.COMPLETED
+    assert completed_job.records_received == 1
+    assert completed_job.records_processed == 1
+    assert output_file.exists()
+
+
+
+def test_process_ready_job_does_not_process_unready_job(tmp_path: Path) -> None:
+    repository = JobRepository()
+    service = JobService(repository)
+
+    request = CreateJobRequest(
+        filename="customers.csv",
+        process_type=ProcessType.CUSTOMER_CSV_CLEANUP,
+    )
+
+    job = service.create_job(request)
+
+    result = service.process_ready_job(
+        job_id=job.job_id,
+        input_path=tmp_path / "input.csv",
+        output_path=tmp_path / "cleaned.csv",
+        error_path=tmp_path / "rejected.csv",
+    )
+
+    assert result is not None
+    assert result.status == JobStatus.AWAITING_UPLOAD

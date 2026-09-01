@@ -5,9 +5,10 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from app.models.enums import JobStatus
-from app.models.requests import CreateJobRequest
 from app.models.responses import JobResponse
+from app.processors.csv_processor import CsvProcessor
 from app.repositories.job_repository import JobRepository
+from app.models.requests import CreateJobRequest
 
 class JobService:
     def __init__(
@@ -72,5 +73,45 @@ class JobService:
             job.status = JobStatus.FAILED
             job.updated_at = datetime.now(timezone.utc)
             job.error_message = str(exc)
+
+        return self.repository.update(job)
+
+
+    def process_ready_job(
+        self,
+        job_id:str,
+        input_path: Path,
+        output_path: Path,
+        error_path: Path,
+    ) -> JobResponse | None:
+        job = self.repository.get(job_id)
+        
+        if job is None:
+            return None
+        if job.status != JobStatus.READY:
+            return job
+
+        return self.process_job(
+            job_id=job_id,
+            input_path=input_path,
+            output_path=output_path,
+            error_path=error_path, 
+        )
+
+
+
+
+    def mark_job_ready(
+        self,
+        job_id: str,
+    ) -> JobResponse | None:
+        job = self.repository.get(job_id)
+
+
+        if job is None:
+            return None
+        
+        job.status = JobStatus.READY
+        job.updated_at = datetime.now(timezone.utc)
 
         return self.repository.update(job)

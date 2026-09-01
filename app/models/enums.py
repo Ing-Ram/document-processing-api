@@ -7,6 +7,7 @@ class JobStatus(str, Enum):
     PROCESSING = "PROCESSING"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
+    READY = "READY"
 
 class ProcessType(str, Enum):
     CUSTOMER_CSV_CLEANUP = "customer_csv_cleanup"

@@ -8,12 +8,15 @@ from fastapi import UploadFile, File
 from app.models.requests import CreateJobRequest, ProcessJobRequest
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.dependencies import get_job_service
+from app.dependencies import get_job_service, get_storage_service
 from app.models.enums import JobStatus
 from app.models.requests import CreateJobRequest
 from app.models.responses import JobResponse
 from app.repositories.job_repository import JobRepository
 from app.services.job_service import JobService
+from app.services.storage_service import StorageService
+
+
 
 router = APIRouter(
     prefix="/jobs",
@@ -58,10 +61,10 @@ def get_job(
     return job
 
 
-@router.post(
-    "/{job_id}/process",
-    response_model=JobResponse,
-)
+# @router.post(
+#     "/{job_id}/process",
+#     response_model=JobResponse,
+# )
 def process_job(
     job_id: str,
     request: ProcessJobRequest,
@@ -93,10 +96,13 @@ def process_job(
     response_model=JobResponse,
 )
 
-async def uplad_job_file(
+async def upload_job_file(
     job_id: str,
     file: UploadFile = File(...),
-    service: JobService = Depends(get_job_service)
+    service: JobService = Depends(get_job_service),
+    storage: StorageService = Depends(get_storage_service),
+
+
 ) -> JobResponse:
     job=service.get_job(job_id)
 
@@ -105,26 +111,55 @@ async def uplad_job_file(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Job with ID {job_id} not found.",
         )
-    upload_directory = Path("tmp/uploads") / job_id
-    upload_directory.mkdir(
+
+    if file.filename is None or not file.filename.lower().endswith(".csv"):
+        raise HTTPException (
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only CSV files are supported.",
+    )
+
+    # upload_directory = Path("tmp/uploads") / job_id
+    # upload_directory.mkdir(
+    #     parents=True,
+    #     exist_ok=True,
+    # )
+
+    # input_path = upload_directory / "input.csv"
+
+    input_path = storage.get_input_path(job_id)
+    input_path.parent.mkdir(
         parents=True,
         exist_ok=True,
     )
 
-    input_path = upload_directory / "input.csv"
-
     contents = await file.read()
+
+    if not contents:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded CSV file is empty."
+        )
     input_path.write_bytes(contents)
 
-    output_directory = Path("tmp/processed") / job_id
-    output_path = output_directory / "cleaned.csv"
-    error_path = output_directory / "rejected.csv"
+    # output_directory = Path("tmp/processed") / job_id
+    # output_path = output_directory / "cleaned.csv"
+    # error_path = output_directory / "rejected.csv"
 
-    processed_job = service.process_job(
-        job_id=job_id,
-        input_path=input_path,
-        output_path=output_path,
-        error_path=error_path,
-    )
+    # processed_job = service.process_job(
+    #     job_id=job_id,
+    #     input_path=input_path,
+    #     output_path=output_path,
+    #     error_path=error_path,
+    # )
+   
+    # job.status = JobStatus.READY
+    # job.updated_at = datetime.now(timezone.utc)
+    updated_job = service.mark_job_ready(job_id)
 
-    return processed_job
+    if updated_job is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Job with ID {job_id} not found."
+        )
+
+    return updated_job
