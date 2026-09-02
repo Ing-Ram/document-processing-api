@@ -6,6 +6,7 @@ from app.repositories.job_repository import JobRepository
 from app.services.job_service import JobService
 from app.models.requests import CreateJobRequest
 from app.models.enums import JobStatus, ProcessType
+from app.services.storage_service import StorageService
 
 from app.main import app
 
@@ -359,3 +360,19 @@ def test_process_ready_job_does_not_process_unready_job(tmp_path: Path) -> None:
 
     assert result is not None
     assert result.status == JobStatus.AWAITING_UPLOAD
+
+
+def test_storage_service_saves_upload(tmp_path: Path) -> None:
+    storage = StorageService()
+
+    storage.get_input_path = lambda job_id: (
+        tmp_path / job_id / "input.csv"
+    )
+
+    input_path = storage.save_upload(
+        job_id="123",
+        contents=b"hello",
+    )
+
+    assert input_path.exists()
+    assert input_path.read_bytes() == b"hello"

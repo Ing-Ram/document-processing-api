@@ -112,24 +112,11 @@ async def upload_job_file(
             detail=f"Job with ID {job_id} not found.",
         )
 
+
     if file.filename is None or not file.filename.lower().endswith(".csv"):
         raise HTTPException (
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Only CSV files are supported.",
-    )
-
-    # upload_directory = Path("tmp/uploads") / job_id
-    # upload_directory.mkdir(
-    #     parents=True,
-    #     exist_ok=True,
-    # )
-
-    # input_path = upload_directory / "input.csv"
-
-    input_path = storage.get_input_path(job_id)
-    input_path.parent.mkdir(
-        parents=True,
-        exist_ok=True,
     )
 
     contents = await file.read()
@@ -137,23 +124,16 @@ async def upload_job_file(
     if not contents:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Uploaded CSV file is empty."
+            detail="Uploaded CSV file is empty.",
         )
-    input_path.write_bytes(contents)
 
-    # output_directory = Path("tmp/processed") / job_id
-    # output_path = output_directory / "cleaned.csv"
-    # error_path = output_directory / "rejected.csv"
+    storage.save_upload(
+        job_id=job_id,
+        contents=contents,
+    )
 
-    # processed_job = service.process_job(
-    #     job_id=job_id,
-    #     input_path=input_path,
-    #     output_path=output_path,
-    #     error_path=error_path,
-    # )
-   
-    # job.status = JobStatus.READY
-    # job.updated_at = datetime.now(timezone.utc)
+
+
     updated_job = service.mark_job_ready(job_id)
 
     if updated_job is None:
