@@ -18,6 +18,15 @@ from app.services.storage_service import StorageService
 
 
 
+from app.dependencies import (
+    get_job_service,
+    get_storage_service,
+    get_processing_service,
+)
+
+from app.services.processing_service import ProcessingService
+
+
 router = APIRouter(
     prefix="/jobs",
     tags=["Jobs"]    
@@ -143,3 +152,25 @@ async def upload_job_file(
         )
 
     return updated_job
+
+
+
+@router.post(
+    "/{job_id}/process",
+    response_model=JobResponse,
+)
+def process_job(
+    job_id: str,
+    processing_service: ProcessingService = Depends(
+        get_processing_service
+    ),
+) -> JobResponse:
+    job = processing_service.process_job(job_id)
+
+    if job is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Job with ID {job_id} not found.",
+        )
+
+    return job

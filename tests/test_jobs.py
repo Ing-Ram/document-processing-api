@@ -8,6 +8,8 @@ from app.models.requests import CreateJobRequest
 from app.models.enums import JobStatus, ProcessType
 from app.services.storage_service import StorageService
 
+
+
 from app.main import app
 
 test_repository = JobRepository()
@@ -376,3 +378,50 @@ def test_storage_service_saves_upload(tmp_path: Path) -> None:
 
     assert input_path.exists()
     assert input_path.read_bytes() == b"hello"
+
+
+
+
+
+def test_process_ready_job_returns_completed_job() -> None:
+    create_response = client.post(
+        "/jobs",
+        json={
+            "filename": "customers.csv",
+            "process_type": "customer_csv_cleanup",
+        },
+    )
+
+    job_id = create_response.json()["job_id"]
+
+    csv_data = (
+        "customer_id,first_name,last_name,email\n"
+        "1001,Chad,Ingram,chad@example.com\n"
+    )
+
+    upload_response = client.post(
+        f"/jobs/{job_id}/upload",
+        files={
+            "file": (
+                "customers.csv",
+                csv_data,
+                "text/csv",
+            )
+        },
+    )
+
+    assert upload_response.status_code == 200
+    assert upload_response.json()["status"] == "READY"
+
+    process_response = client.post(
+        f"/jobs/{job_id}/process",
+    )
+
+    assert process_response.status_code == 200
+
+    data = process_response.json()
+
+    assert data["status"] == "COMPLETED"
+    assert data["records_received"] == 1
+    assert data["records_processed"] == 1
+    assert data["records_rejected"] == 0
